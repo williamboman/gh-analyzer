@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::process::Command;
 
@@ -15,10 +15,10 @@ where
     if result.status.success() {
         Ok(serde_json::from_slice::<T>(&result.stdout)?)
     } else {
-        Err(anyhow!("Failed to execute GitHub API call.")).context(format!(
-            "status_code={}, path={}",
-            result.status.code().unwrap_or(-1),
-            path
+        Err(anyhow!(
+            "Failed to execute GitHub API call to {}:\n{}",
+            path,
+            std::str::from_utf8(&result.stdout).unwrap_or("Unable to read `gh` error.")
         ))
     }
 }
@@ -57,7 +57,11 @@ pub async fn fetch_traffic(
     frequency: Frequency,
 ) -> Result<GitHubTrafficContainer> {
     let payload = api_call(&repo.api_path(&format!("traffic/views?per={}", frequency))).await?;
-    Ok(GitHubTrafficContainer { repo: repo.to_owned(), frequency, payload })
+    Ok(GitHubTrafficContainer {
+        repo: repo.to_owned(),
+        frequency,
+        payload,
+    })
 }
 
 pub async fn fetch_clones(
@@ -65,5 +69,9 @@ pub async fn fetch_clones(
     frequency: Frequency,
 ) -> Result<GitHubClonesContainer> {
     let payload = api_call(&repo.api_path(&format!("traffic/clones?per={}", frequency))).await?;
-    Ok(GitHubClonesContainer { repo: repo.to_owned(), frequency, payload })
+    Ok(GitHubClonesContainer {
+        repo: repo.to_owned(),
+        frequency,
+        payload,
+    })
 }

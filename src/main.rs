@@ -97,12 +97,13 @@ async fn main() -> Result<()> {
                 github::api::fetch_traffic(&repo, github::api::Frequency::Day)
             );
             // --- TODO better
-            if let Ok(container) = weekly {
-                write_traffic(&container).await?;
+            if let Ok(container) = &weekly {
+                write_traffic(container).await?;
             }
-            if let Ok(container) = daily {
-                write_traffic(&container).await?;
+            if let Ok(container) = &daily {
+                write_traffic(container).await?;
             }
+            weekly.and(daily)?;
             // ---
         }
         Command::Clones => {
@@ -117,12 +118,13 @@ async fn main() -> Result<()> {
                 github::api::fetch_clones(&repo, github::api::Frequency::Day)
             );
             // --- TODO better
-            if let Ok(container) = weekly {
-                write_clones(&container).await?;
+            if let Ok(container) = &weekly {
+                write_clones(container).await?;
             }
-            if let Ok(container) = daily {
-                write_clones(&container).await?;
+            if let Ok(container) = &daily {
+                write_clones(container).await?;
             }
+            weekly.and(daily)?;
             // ---
         }
     }
