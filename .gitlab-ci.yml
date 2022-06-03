@@ -19,7 +19,7 @@ build:
     - cargo build -r
   artifacts:
     paths:
-      - target/release/
+      - target/release/gh-analyzer
 
 upload:
   stage: upload
