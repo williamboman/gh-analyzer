@@ -1,0 +1,41 @@
+stages:
+  - build
+  - upload
+  - release
+
+variables:
+  PACKAGE_VERSION: "${CI_COMMIT_TAG}"
+  LINUX_AMD64_BINARY: "gh-analyzer-x86_64-linux-unknown-gnu"
+  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/$(CI_PROJECT_NAME}/${PACKAGE_VERSION}"
+
+build:
+  stage: build
+  image: rust:alpine
+  tags:
+    - x86_64-unknown-linux-gnu
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - cargo build -r
+  artifacts:
+    paths:
+      - target/release/
+
+upload:
+  stage: upload
+  image: curlimages/curl:latest
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - |
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file target/release/gh-analyzer ${PACKAGE_REGISTRY_URL}/${LINUX_AMD64_BINARY}
+
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - |
+      release-cli create --name "Release $CI_COMMIT_TAG" --tag-name $CI_COMMIT_TAG \
+        --assets-link "{\"name\":\"${LINUX_AMD64_BINARY}\",\"url\":\"${PACKAGE_REGISTRY_URL}/${LINUX_AMD64_BINARY}\"}"
