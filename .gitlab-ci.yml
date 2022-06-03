@@ -5,18 +5,19 @@ stages:
 
 variables:
   PACKAGE_VERSION: "${CI_COMMIT_TAG}"
-  LINUX_AMD64_BINARY: "gh-analyzer-x86_64-linux-unknown-gnu"
+  LINUX_X64_BINARY: "gh-analyzer-x86_64-unknown-linux-musl"
   PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${CI_PROJECT_NAME}/${PACKAGE_VERSION}"
 
 build:
   stage: build
-  image: rust
+  image: rust:alpine
   tags:
-    - x86_64-unknown-linux-gnu
+    - x86_64-linux
   rules:
     - if: $CI_COMMIT_TAG
   script:
-    - cargo build -r
+    # TODO porque es necesito??
+    - LIBRARY_PATH="$(rustc --print target-libdir)/self-contained:$LIBRARY_PATH" cargo build -r
   artifacts:
     paths:
       - target/release/gh-analyzer
@@ -28,7 +29,7 @@ upload:
     - if: $CI_COMMIT_TAG
   script:
     - |
-      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file target/release/gh-analyzer "${PACKAGE_REGISTRY_URL}/${LINUX_AMD64_BINARY}"
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file target/release/gh-analyzer "${PACKAGE_REGISTRY_URL}/${LINUX_X64_BINARY}"
 
 release:
   stage: release
@@ -38,4 +39,4 @@ release:
   script:
     - |
       release-cli create --name "Release ${CI_COMMIT_TAG}" --tag-name ${CI_COMMIT_TAG} \
-        --assets-link "{\"name\":\"${LINUX_AMD64_BINARY}\",\"url\":\"${PACKAGE_REGISTRY_URL}/${LINUX_AMD64_BINARY}\"}"
+        --assets-link "{\"name\":\"${LINUX_X64_BINARY}\",\"url\":\"${PACKAGE_REGISTRY_URL}/${LINUX_X64_BINARY}\"}"
