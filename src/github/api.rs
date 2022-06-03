@@ -13,7 +13,8 @@ where
     let result = Command::new("gh").args(["api", path]).output().await?;
 
     if result.status.success() {
-        Ok(serde_json::from_slice::<T>(&result.stdout)?)
+        Ok(serde_json::from_slice::<T>(&result.stdout)
+            .map_err(|err| anyhow!("Failed to parse `gh` output.").context(err))?)
     } else {
         Err(anyhow!(
             "Failed to execute GitHub API call to {}:\n{}",
