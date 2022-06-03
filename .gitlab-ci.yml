@@ -6,7 +6,7 @@ stages:
 variables:
   PACKAGE_VERSION: "${CI_COMMIT_TAG}"
   LINUX_AMD64_BINARY: "gh-analyzer-x86_64-linux-unknown-gnu"
-  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/$(CI_PROJECT_NAME}/${PACKAGE_VERSION}"
+  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${CI_PROJECT_NAME}/${PACKAGE_VERSION}"
 
 build:
   stage: build
@@ -28,7 +28,7 @@ upload:
     - if: $CI_COMMIT_TAG
   script:
     - |
-      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file target/release/gh-analyzer ${PACKAGE_REGISTRY_URL}/${LINUX_AMD64_BINARY}
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file target/release/gh-analyzer "${PACKAGE_REGISTRY_URL}/${LINUX_AMD64_BINARY}"
 
 release:
   stage: release
@@ -37,5 +37,5 @@ release:
     - if: $CI_COMMIT_TAG
   script:
     - |
-      release-cli create --name "Release $CI_COMMIT_TAG" --tag-name $CI_COMMIT_TAG \
+      release-cli create --name "Release ${CI_COMMIT_TAG}" --tag-name ${CI_COMMIT_TAG} \
         --assets-link "{\"name\":\"${LINUX_AMD64_BINARY}\",\"url\":\"${PACKAGE_REGISTRY_URL}/${LINUX_AMD64_BINARY}\"}"
