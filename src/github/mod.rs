@@ -6,10 +6,37 @@ use std::{fmt::Display, str::FromStr};
 
 use crate::StdResult;
 
+use self::api::{Frequency, GitHubClonesContainer, GitHubTrafficContainer, GitHubTrafficStat};
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GitHubRepoId {
     pub owner: String,
     pub repo: String,
+}
+
+pub trait GitHubStats {
+    fn get_stats(&self) -> &Vec<GitHubTrafficStat>;
+    fn get_frequency(&self) -> &Frequency;
+}
+
+impl GitHubStats for GitHubTrafficContainer {
+    fn get_stats(&self) -> &Vec<GitHubTrafficStat> {
+        &self.payload.views
+    }
+
+    fn get_frequency(&self) -> &Frequency {
+        &self.frequency
+    }
+}
+
+impl GitHubStats for GitHubClonesContainer {
+    fn get_stats(&self) -> &Vec<GitHubTrafficStat> {
+        &self.payload.clones
+    }
+
+    fn get_frequency(&self) -> &Frequency {
+        &self.frequency
+    }
 }
 
 impl GitHubRepoId {

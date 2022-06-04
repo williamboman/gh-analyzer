@@ -1,17 +1,17 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::{anyhow, Result};
 use serde::Serialize;
 use tokio::fs::File;
 
 #[inline]
-fn dirname(path: &PathBuf) -> Result<&Path> {
+fn dirname(path: &Path) -> Result<&Path> {
     path.ancestors()
         .nth(1)
         .ok_or_else(|| anyhow!("Failed to find ancestor of {}.", path.display()))
 }
 
-pub async fn write_json<T>(rel_path: &str, value: &T) -> Result<()>
+pub async fn write_json<T>(rel_path: &Path, value: &T) -> Result<()>
 where
     T: Serialize,
 {

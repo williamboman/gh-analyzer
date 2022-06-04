@@ -3,68 +3,52 @@ mod fs;
 mod github;
 mod iso8601date;
 
-use std::str::FromStr;
+use std::{fmt::Display, path::PathBuf, str::FromStr};
 
 use anyhow::Result;
 
-use github::api::{GitHubClonesContainer, GitHubRepoContainer, GitHubTrafficContainer};
+use github::{GitHubRepoId, GitHubStats};
 use iso8601date::ISO8601Date;
+use serde::Serialize;
 
 type StdResult<T, E> = std::result::Result<T, E>;
 
-// TODO DRY me
-async fn write_traffic(out_dir: &str, traffic: &GitHubTrafficContainer) -> Result<()> {
-    for traffic_stat in &traffic.payload.views {
-        fs::write_json(
-            format!(
-                "{}/{}/traffic/{}/{}.json",
-                out_dir,
-                traffic.repo,
-                traffic.frequency,
-                traffic_stat.timestamp.as_date_str()
-            )
-            .as_str(),
-            &traffic_stat,
-        )
-        .await?;
+async fn write_stats(out_dir: &PathBuf, stats: &dyn GitHubStats) -> Result<()> {
+    for stat in stats.get_stats() {
+        let mut stat_path = out_dir.to_owned();
+        stat_path.push(format!(
+            "{}/{}.json",
+            stats.get_frequency(),
+            stat.timestamp.as_date_str()
+        ));
+        fs::write_json(&stat_path, &stat).await?;
     }
     Ok(())
 }
-async fn write_clones(out_dir: &str, clones: &GitHubClonesContainer) -> Result<()> {
-    for traffic_stat in &clones.payload.clones {
-        fs::write_json(
-            format!(
-                "{}/{}/clones/{}/{}.json",
-                out_dir,
-                clones.repo,
-                clones.frequency,
-                traffic_stat.timestamp.as_date_str()
-            )
-            .as_str(),
-            &traffic_stat,
-        )
-        .await?;
-    }
-    Ok(())
-}
-async fn write_repo(out_dir: &str, repo_container: &GitHubRepoContainer) -> Result<()> {
-    fs::write_json(
-        format!(
-            "{}/{}/repo/{}.json",
-            out_dir,
-            repo_container.repo,
-            ISO8601Date::now_utc().as_date_str()
-        )
-        .as_str(),
-        &repo_container.payload,
-    )
-    .await
+
+async fn write_single<T>(out_dir: &PathBuf, data: &T) -> Result<()>
+where
+    T: Serialize,
+{
+    let mut path = out_dir.to_owned();
+    path.push(format!("{}.json", ISO8601Date::now_utc().as_date_str()));
+    fs::write_json(&path, data).await
 }
 
 enum Command {
     Traffic,
     Clones,
     Repo,
+}
+
+impl Display for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Traffic => f.write_str("traffic"),
+            Command::Clones => f.write_str("clones"),
+            Command::Repo => f.write_str("repo"),
+        }
+    }
 }
 
 impl FromStr for Command {
@@ -96,23 +80,30 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    let out_dir = cli.options.get("out-dir").ok_or(cli::CliError::BadInput(
-        "Missing --out-dir option.".to_owned(),
-    ))?;
+    let mut out_dir: PathBuf = cli
+        .options
+        .get("out-dir")
+        .ok_or(cli::CliError::BadInput(
+            "Missing --out-dir option.".to_owned(),
+        ))?
+        .into();
 
     let mut commands = cli.commands.into_iter();
 
-    let command = commands
+    let command: Command = commands
         .next()
         .ok_or(cli::CliError::BadInput("No command provided.".to_owned()))?
         .parse()?;
 
-    let repo = commands
+    let repo: GitHubRepoId = commands
         .next()
         .ok_or(cli::CliError::BadInput(
             "No repository provided.".to_owned(),
         ))?
         .parse()?;
+
+    out_dir.push(repo.as_slug());
+    out_dir.push(command.to_string());
 
     match command {
         Command::Traffic => {
@@ -122,10 +113,10 @@ async fn main() -> Result<()> {
             );
             // --- TODO better
             if let Ok(container) = &weekly {
-                write_traffic(out_dir, container).await?;
+                write_stats(&out_dir, container).await?;
             }
             if let Ok(container) = &daily {
-                write_traffic(out_dir, container).await?;
+                write_stats(&out_dir, container).await?;
             }
             weekly.and(daily)?;
             // ---
@@ -137,17 +128,17 @@ async fn main() -> Result<()> {
             );
             // --- TODO better
             if let Ok(container) = &weekly {
-                write_clones(out_dir, container).await?;
+                write_stats(&out_dir, container).await?;
             }
             if let Ok(container) = &daily {
-                write_clones(out_dir, container).await?;
+                write_stats(&out_dir, container).await?;
             }
             weekly.and(daily)?;
             // ---
         }
         Command::Repo => {
             let repo_container = github::api::fetch_repo(&repo).await?;
-            write_repo(out_dir, &repo_container).await?;
+            write_single(&out_dir, &repo_container.payload).await?;
         }
     }
 
