@@ -45,8 +45,8 @@ impl Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Traffic => f.write_str("traffic"),
-            Command::Clones => f.write_str("clones"),
-            Command::Repo => f.write_str("repo"),
+            Self::Clones => f.write_str("clones"),
+            Self::Repo => f.write_str("repo"),
         }
     }
 }
