@@ -76,7 +76,7 @@ pub struct GitHubRepo {
     pub has_projects: bool,
     pub size: u32,
     pub topics: Vec<String>,
-    pub license: GitHubRepoLicense,
+    pub license: Option<GitHubRepoLicense>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
