@@ -1,6 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 use anyhow::{anyhow, Result};
+use chrono::{DateTime, Datelike, Timelike, Utc};
 use serde::{de, Deserialize, Deserializer, Serialize};
 
 use crate::StdResult;
@@ -19,49 +20,14 @@ pub struct ISO8601Date {
     raw: String,
 }
 
-impl<'a> Deserialize<'a> for ISO8601Date {
-    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
-    where
-        D: Deserializer<'a>,
-    {
-        let s = String::deserialize(deserializer)?;
-        FromStr::from_str(&s).map_err(de::Error::custom)
-    }
-}
-
-impl Serialize for ISO8601Date {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.raw.serialize(serializer)
-    }
-}
-
-impl Display for ISO8601Date {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        fmt.write_str(&self.raw)
-    }
-}
-
-// TODO generics, macro?
-fn parse_u16(s: &str) -> Option<u16> {
-    s.parse().ok()
-}
-fn parse_u8(s: &str) -> Option<u8> {
-    s.parse().ok()
-}
-
-fn remove_padding(s: &str) -> Option<&str> {
-    let trimmed_str = s.trim_start_matches('0');
-    Some(if trimmed_str.len() == 0 {
-        "0"
-    } else {
-        trimmed_str
-    })
-}
-
 impl ISO8601Date {
+    pub fn now_utc() -> Self {
+        Utc::now()
+            .try_into()
+            .map_err(|_| anyhow!("Unable to parse current UTC DateTime into ISO8601Date."))
+            .unwrap()
+    }
+
     pub fn as_date_str(&self) -> String {
         format!("{}-{:02}-{:02}", self.year, self.month, self.day)
     }
@@ -121,6 +87,65 @@ impl ISO8601Date {
             ))
         }
     }
+}
+
+impl TryFrom<DateTime<Utc>> for ISO8601Date {
+    type Error = anyhow::Error;
+
+    fn try_from(datetime: DateTime<Utc>) -> Result<Self> {
+        Ok(Self {
+            year: datetime.year().try_into()?,
+            month: datetime.month().try_into()?,
+            day: datetime.day().try_into()?,
+            hours: datetime.hour().try_into()?,
+            minutes: datetime.minute().try_into()?,
+            seconds: datetime.second().try_into()?,
+            tz: "Z".to_owned(),
+            raw: "FIXME".to_owned(),
+        })
+    }
+}
+
+impl<'a> Deserialize<'a> for ISO8601Date {
+    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
+    where
+        D: Deserializer<'a>,
+    {
+        let s = String::deserialize(deserializer)?;
+        FromStr::from_str(&s).map_err(de::Error::custom)
+    }
+}
+
+impl Serialize for ISO8601Date {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.raw.serialize(serializer)
+    }
+}
+
+impl Display for ISO8601Date {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fmt.write_str(&self.raw)
+    }
+}
+
+// TODO generics, macro?
+fn parse_u16(s: &str) -> Option<u16> {
+    s.parse().ok()
+}
+fn parse_u8(s: &str) -> Option<u8> {
+    s.parse().ok()
+}
+
+fn remove_padding(s: &str) -> Option<&str> {
+    let trimmed_str = s.trim_start_matches('0');
+    Some(if trimmed_str.len() == 0 {
+        "0"
+    } else {
+        trimmed_str
+    })
 }
 
 impl FromStr for ISO8601Date {

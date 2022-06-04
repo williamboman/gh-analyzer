@@ -1,34 +1,20 @@
-use anyhow::{anyhow, Result};
-use std::{collections::BTreeMap, str::FromStr};
+use anyhow::Result;
+use std::{collections::BTreeMap, fmt::Display, str::FromStr};
+use thiserror::Error;
 
 pub fn print_help() {
     print!(
         r#"Usage:
-$ gh-analyzer <command> <repo>
+gh-analyzer <command> <repo>
 
 These are the available commands:
 
     traffic    Fetch traffic data.
     clones     Fetch clones data.
+    repo       Fetch repo data (stars, forks, watchers, watchers)
 
 "#
     )
-}
-
-pub trait PrintHelp<T> {
-    fn ok_or_print_help(self, error_msg: &'static str) -> Result<T>;
-}
-
-impl<T> PrintHelp<T> for Option<T> {
-    fn ok_or_print_help(self, error_msg: &'static str) -> Result<T> {
-        return match self {
-            Some(v) => Ok(v),
-            None => {
-                print_help();
-                Err(anyhow!(error_msg))
-            }
-        };
-    }
 }
 
 type Flags = BTreeMap<String, Option<String>>;
@@ -46,6 +32,19 @@ enum ParsedArg {
     Argument(String),
 }
 
+#[derive(Error, Debug)]
+pub enum CliError {
+    BadInput(String),
+}
+
+impl Display for CliError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::BadInput(x) => f.write_str(x)
+        }
+    }
+}
+
 impl FromStr for ParsedArg {
     type Err = anyhow::Error;
 
@@ -54,7 +53,7 @@ impl FromStr for ParsedArg {
             let (key, _value) = s[2..]
                 .split_once('=')
                 .or(Some((&s[2..], "")))
-                .ok_or_print_help("Failed to parse option.")?;
+                .ok_or(CliError::BadInput("Failed to parse option".to_owned()))?;
             Ok(Self::Flag {
                 key: key.to_owned(),
                 value: Some(key.to_owned()),

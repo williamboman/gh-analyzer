@@ -5,14 +5,13 @@ mod iso8601date;
 
 use std::str::FromStr;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 
 use github::{
-    api::{GitHubClonesContainer, GitHubTrafficContainer},
-    GitHubRepo,
+    api::{GitHubClonesContainer, GitHubRepoContainer, GitHubTrafficContainer},
+    GitHubRepoId,
 };
-
-use crate::cli::PrintHelp;
+use iso8601date::ISO8601Date;
 
 type StdResult<T, E> = std::result::Result<T, E>;
 
@@ -54,21 +53,50 @@ async fn write_clones(clones: &GitHubClonesContainer) -> Result<()> {
     }
     Ok(())
 }
+async fn write_repo(repo_container: &GitHubRepoContainer) -> Result<()> {
+    fs::write_json(
+        format!(
+            "{}/{}/repo/{}.json",
+            OUT_DIR,
+            repo_container.repo,
+            ISO8601Date::now_utc().as_date_str()
+        )
+        .as_str(),
+        &repo_container.payload,
+    )
+    .await
+}
 
 enum Command {
     Traffic,
     Clones,
+    Repo,
 }
 
 impl FromStr for Command {
-    type Err = anyhow::Error;
+    type Err = cli::CliError;
 
-    fn from_str(s: &str) -> Result<Self> {
+    fn from_str(s: &str) -> Result<Self, cli::CliError> {
         match s {
             "traffic" => Ok(Self::Traffic),
             "clones" => Ok(Self::Clones),
-            _ => Err(anyhow!("{} is not a valid command", s)),
+            "repo" => Ok(Self::Repo),
+            _ => Err(cli::CliError::BadInput(format!(
+                "{} is not a valid command",
+                s
+            ))),
         }
+    }
+}
+
+impl cli::Cli {
+    fn get_repo(&self) -> Result<GitHubRepoId> {
+        self.sub_commands
+            .first()
+            .ok_or(cli::CliError::BadInput(
+                "No repository provided.".to_owned(),
+            ))?
+            .parse()
     }
 }
 
@@ -79,18 +107,16 @@ async fn main() -> Result<()> {
         cli::print_help();
         return Ok(());
     }
-    let command: Command = cli
+
+    let command = cli
         .command
-        .ok_or_print_help("No command provided.")?
+        .clone()
+        .ok_or(cli::CliError::BadInput("No command provided.".to_owned()))?
         .parse()?;
 
     match command {
         Command::Traffic => {
-            let repo: GitHubRepo = cli
-                .sub_commands
-                .first()
-                .ok_or_print_help("No repository provided.")?
-                .parse()?;
+            let repo: GitHubRepoId = cli.get_repo()?;
 
             let (weekly, daily) = tokio::join!(
                 github::api::fetch_traffic(&repo, github::api::Frequency::Week),
@@ -107,11 +133,7 @@ async fn main() -> Result<()> {
             // ---
         }
         Command::Clones => {
-            let repo: GitHubRepo = cli
-                .sub_commands
-                .first()
-                .ok_or_print_help("No repository provided.")?
-                .parse()?;
+            let repo = cli.get_repo()?;
 
             let (weekly, daily) = tokio::join!(
                 github::api::fetch_clones(&repo, github::api::Frequency::Week),
@@ -126,6 +148,11 @@ async fn main() -> Result<()> {
             }
             weekly.and(daily)?;
             // ---
+        }
+        Command::Repo => {
+            let repo = cli.get_repo()?;
+            let repo_container = github::api::fetch_repo(&repo).await?;
+            write_repo(&repo_container).await?;
         }
     }
 

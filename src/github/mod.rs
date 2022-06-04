@@ -4,52 +4,27 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, str::FromStr};
 
-use crate::{iso8601date::ISO8601Date, StdResult};
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct GitHubTrafficStat {
-    pub timestamp: ISO8601Date,
-    pub count: u32,
-    pub uniques: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct GitHubTraffic {
-    pub count: u32,
-    pub uniques: u32,
-    pub views: Vec<GitHubTrafficStat>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct GitHubClones {
-    pub count: u32,
-    pub uniques: u32,
-    pub clones: Vec<GitHubTrafficStat>,
-}
+use crate::StdResult;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GitHubRepo {
+pub struct GitHubRepoId {
     pub owner: String,
     pub repo: String,
 }
 
-impl GitHubRepo {
+impl GitHubRepoId {
     pub fn as_slug(&self) -> String {
         format!("{owner}/{repo}", owner = self.owner, repo = self.repo)
     }
-
-    pub fn api_path(&self, path: &str) -> String {
-        format!("repos/{}/{}", self.as_slug(), path)
-    }
 }
 
-impl Display for GitHubRepo {
+impl Display for GitHubRepoId {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(fmt, "{}", self.as_slug())
     }
 }
 
-impl FromStr for GitHubRepo {
+impl FromStr for GitHubRepoId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> StdResult<Self, Self::Err> {
