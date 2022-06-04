@@ -108,6 +108,7 @@ impl Display for Frequency {
     }
 }
 
+// TODO skip incomplete data points (i.e. today and current week)
 pub async fn fetch_traffic(
     repo: &GitHubRepoId,
     frequency: Frequency,
@@ -122,6 +123,7 @@ pub async fn fetch_traffic(
     })
 }
 
+// TODO skip incomplete data points (i.e. today and current week)
 pub async fn fetch_clones(
     repo: &GitHubRepoId,
     frequency: Frequency,

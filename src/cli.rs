@@ -1,34 +1,49 @@
 use anyhow::Result;
-use std::{collections::BTreeMap, fmt::Display, str::FromStr};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Display,
+    str::FromStr,
+};
 use thiserror::Error;
 
+const PKG_NAME: &str = env!("CARGO_PKG_NAME");
+const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub fn print_help() {
-    print!(
+    println!(
         r#"Usage:
-gh-analyzer <command> <repo>
+{} [-v] [--version] [-h] [--help] --out-dir=<out_dir> <command> <repo>
 
 These are the available commands:
 
     traffic    Fetch traffic data.
     clones     Fetch clones data.
     repo       Fetch repo data (stars, forks, watchers, watchers)
-
-"#
-    )
+"#,
+        PKG_NAME
+    );
+    print_version();
 }
 
-type Flags = BTreeMap<String, Option<String>>;
+pub fn print_version() {
+    println!("{} v{}", PKG_NAME, PKG_VERSION);
+}
+
+type Flags = BTreeSet<String>;
+type Options = BTreeMap<String, String>;
+type Commands = Vec<String>;
 
 #[derive(Debug)]
 pub struct Cli {
-    pub command: Option<String>,
-    pub sub_commands: Vec<String>,
+    pub commands: Commands,
     pub flags: Flags,
+    pub options: Options,
 }
 
 #[derive(Debug)]
 enum ParsedArg {
-    Flag { key: String, value: Option<String> },
+    Flag(String),
+    Option(String, String),
     Argument(String),
 }
 
@@ -40,30 +55,29 @@ pub enum CliError {
 impl Display for CliError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::BadInput(x) => f.write_str(x)
+            Self::BadInput(x) => f.write_str(x),
         }
     }
 }
 
 impl FromStr for ParsedArg {
-    type Err = anyhow::Error;
+    type Err = CliError;
 
-    fn from_str(s: &str) -> Result<Self> {
+    fn from_str(s: &str) -> Result<Self, CliError> {
         if s.starts_with("--") {
-            let (key, _value) = s[2..]
+            let (key, value) = s[2..]
                 .split_once('=')
                 .or(Some((&s[2..], "")))
                 .ok_or(CliError::BadInput("Failed to parse option".to_owned()))?;
-            Ok(Self::Flag {
-                key: key.to_owned(),
-                value: Some(key.to_owned()),
-            })
+            Ok(Self::Option(key.to_owned(), value.to_owned()))
         } else if s.starts_with("-") {
-            let key = &s[1..];
-            Ok(Self::Flag {
-                key: key.to_owned(),
-                value: None,
-            })
+            match s.len() {
+                2 => {
+                    let key = &s[1..2];
+                    Ok(Self::Flag(key.to_owned()))
+                }
+                _ => Err(CliError::BadInput(format!("Invalid option format: {}", s))),
+            }
         } else {
             Ok(Self::Argument(s.to_owned()))
         }
@@ -71,27 +85,28 @@ impl FromStr for ParsedArg {
 }
 
 pub fn init(args: &mut std::env::Args) -> Result<Cli> {
-    let mut flags: Flags = Flags::new();
-    let mut commands: Vec<String> = Vec::new();
+    let mut flags = Flags::new();
+    let mut options = Options::new();
+    let mut commands = Commands::new();
+
     for arg in args.skip(1) {
         let parsed: ParsedArg = arg.parse()?;
         match parsed {
-            ParsedArg::Flag { key, value } => {
-                flags.insert(key, value);
+            ParsedArg::Flag(key) => {
+                flags.insert(key);
             }
             ParsedArg::Argument(arg) => {
                 commands.push(arg);
+            }
+            ParsedArg::Option(key, value) => {
+                options.insert(key, value);
             }
         }
     }
 
     Ok(Cli {
-        command: commands.first().map(String::to_owned),
-        sub_commands: if commands.len() > 1 {
-            commands[1..].to_vec()
-        } else {
-            Vec::with_capacity(0)
-        },
+        commands,
+        options,
         flags,
     })
 }
