@@ -45,9 +45,9 @@ fn parse_repo_from_arg(argument: Option<String>) -> Result<GitHubRepoId> {
     let argument_str = argument.ok_or(cli::CliError::BadInput(
         "No repository provided.".to_owned(),
     ))?;
-    let github_repo_id = argument_str
-        .parse()
-        .map_err(|_| cli::CliError::BadInput("Unable to parse repository.".to_owned()))?;
+    let github_repo_id = argument_str.parse().map_err(|_| {
+        cli::CliError::BadInput(format!(r#"Unable to parse repository "{}"."#, argument_str))
+    })?;
     Ok(github_repo_id)
 }
 
@@ -118,7 +118,7 @@ async fn main() -> Result<()> {
                 github::api::fetch_clones(&repo, github::api::Frequency::Day)
             );
             out_dir.push(repo.to_slug());
-            out_dir.push("traffic");
+            out_dir.push("clones");
             // --- TODO better
             if let Ok(container) = &weekly {
                 write_stats(&out_dir, container).await?;
@@ -131,7 +131,7 @@ async fn main() -> Result<()> {
         }
         Command::Repo(repo) => {
             out_dir.push(repo.to_slug());
-            out_dir.push("traffic");
+            out_dir.push("repo");
             let repo_container = github::api::fetch_repo(&repo).await?;
             write_single(&out_dir, &repo_container.payload).await?;
         }
