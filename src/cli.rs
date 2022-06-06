@@ -29,9 +29,9 @@ pub fn print_version() {
     println!("{} v{}", PKG_NAME, PKG_VERSION);
 }
 
-type Flags = BTreeSet<String>;
-type Options = BTreeMap<String, String>;
-type Commands = Vec<String>;
+pub type Flags = BTreeSet<String>;
+pub type Options = BTreeMap<String, String>;
+pub type Commands = Vec<String>;
 
 #[derive(Debug)]
 pub struct Cli {
@@ -63,7 +63,7 @@ impl Display for CliError {
 impl FromStr for ParsedArg {
     type Err = CliError;
 
-    fn from_str(s: &str) -> Result<Self, CliError> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.starts_with("--") {
             let (key, value) = s[2..]
                 .split_once('=')

@@ -3,7 +3,7 @@ mod fs;
 mod github;
 mod iso8601date;
 
-use std::{fmt::Display, path::PathBuf, str::FromStr};
+use std::path::PathBuf;
 
 use anyhow::Result;
 
@@ -36,33 +36,37 @@ where
 }
 
 enum Command {
-    Traffic,
-    Clones,
-    Repo,
+    Traffic(GitHubRepoId),
+    Clones(GitHubRepoId),
+    Repo(GitHubRepoId),
 }
 
-impl Display for Command {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Traffic => f.write_str("traffic"),
-            Self::Clones => f.write_str("clones"),
-            Self::Repo => f.write_str("repo"),
-        }
-    }
+fn parse_repo_from_arg(argument: Option<String>) -> Result<GitHubRepoId> {
+    let argument_str = argument.ok_or(cli::CliError::BadInput(
+        "No repository provided.".to_owned(),
+    ))?;
+    let github_repo_id = argument_str
+        .parse()
+        .map_err(|_| cli::CliError::BadInput("Unable to parse repository.".to_owned()))?;
+    Ok(github_repo_id)
 }
 
-impl FromStr for Command {
-    type Err = cli::CliError;
+impl TryFrom<cli::Commands> for Command {
+    type Error = anyhow::Error;
 
-    fn from_str(s: &str) -> Result<Self, cli::CliError> {
-        match s {
-            "traffic" => Ok(Self::Traffic),
-            "clones" => Ok(Self::Clones),
-            "repo" => Ok(Self::Repo),
-            _ => Err(cli::CliError::BadInput(format!(
-                "{} is not a valid command",
-                s
-            ))),
+    fn try_from(commands: cli::Commands) -> Result<Self, Self::Error> {
+        let mut iter = commands.into_iter();
+        let command = iter
+            .next()
+            .ok_or(cli::CliError::BadInput("No command provided.".to_owned()))?;
+
+        match command.as_str() {
+            "traffic" => Ok(Command::Traffic(parse_repo_from_arg(iter.next())?)),
+            "clones" => Ok(Command::Clones(parse_repo_from_arg(iter.next())?)),
+            "repo" => Ok(Command::Repo(parse_repo_from_arg(iter.next())?)),
+            _ => {
+                Err(cli::CliError::BadInput(format!("Command {} does not exist.", command)).into())
+            }
         }
     }
 }
@@ -88,29 +92,16 @@ async fn main() -> Result<()> {
         ))?
         .into();
 
-    let mut commands = cli.commands.into_iter();
-
-    let command: Command = commands
-        .next()
-        .ok_or(cli::CliError::BadInput("No command provided.".to_owned()))?
-        .parse()?;
-
-    let repo: GitHubRepoId = commands
-        .next()
-        .ok_or(cli::CliError::BadInput(
-            "No repository provided.".to_owned(),
-        ))?
-        .parse()?;
-
-    out_dir.push(repo.as_slug());
-    out_dir.push(command.to_string());
+    let command: Command = cli.commands.try_into()?;
 
     match command {
-        Command::Traffic => {
+        Command::Traffic(repo) => {
             let (weekly, daily) = tokio::join!(
                 github::api::fetch_traffic(&repo, github::api::Frequency::Week),
                 github::api::fetch_traffic(&repo, github::api::Frequency::Day)
             );
+            out_dir.push(repo.to_slug());
+            out_dir.push("traffic");
             // --- TODO better
             if let Ok(container) = &weekly {
                 write_stats(&out_dir, container).await?;
@@ -121,11 +112,13 @@ async fn main() -> Result<()> {
             weekly.and(daily)?;
             // ---
         }
-        Command::Clones => {
+        Command::Clones(repo) => {
             let (weekly, daily) = tokio::join!(
                 github::api::fetch_clones(&repo, github::api::Frequency::Week),
                 github::api::fetch_clones(&repo, github::api::Frequency::Day)
             );
+            out_dir.push(repo.to_slug());
+            out_dir.push("traffic");
             // --- TODO better
             if let Ok(container) = &weekly {
                 write_stats(&out_dir, container).await?;
@@ -136,7 +129,9 @@ async fn main() -> Result<()> {
             weekly.and(daily)?;
             // ---
         }
-        Command::Repo => {
+        Command::Repo(repo) => {
+            out_dir.push(repo.to_slug());
+            out_dir.push("traffic");
             let repo_container = github::api::fetch_repo(&repo).await?;
             write_single(&out_dir, &repo_container.payload).await?;
         }

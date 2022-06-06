@@ -114,7 +114,7 @@ pub async fn fetch_traffic(
     frequency: Frequency,
 ) -> Result<GitHubTrafficContainer> {
     let payload =
-        api_call(format!("repos/{}/traffic/views?per={}", repo.as_slug(), frequency).as_str())
+        api_call(format!("repos/{}/traffic/views?per={}", repo.to_slug(), frequency).as_str())
             .await?;
     Ok(GitHubTrafficContainer {
         repo: repo.to_owned(),
@@ -129,7 +129,7 @@ pub async fn fetch_clones(
     frequency: Frequency,
 ) -> Result<GitHubClonesContainer> {
     let payload =
-        api_call(format!("repos/{}/traffic/clones?per={}", repo.as_slug(), frequency).as_str())
+        api_call(format!("repos/{}/traffic/clones?per={}", repo.to_slug(), frequency).as_str())
             .await?;
     Ok(GitHubClonesContainer {
         repo: repo.to_owned(),
@@ -139,7 +139,7 @@ pub async fn fetch_clones(
 }
 
 pub async fn fetch_repo(repo: &GitHubRepoId) -> Result<GitHubRepoContainer> {
-    let payload = api_call(format!("repos/{}", repo.as_slug()).as_str()).await?;
+    let payload = api_call(format!("repos/{}", repo.to_slug()).as_str()).await?;
     Ok(GitHubRepoContainer {
         repo: repo.to_owned(),
         payload,

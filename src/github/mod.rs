@@ -40,14 +40,14 @@ impl GitHubStats for GitHubClonesContainer {
 }
 
 impl GitHubRepoId {
-    pub fn as_slug(&self) -> String {
+    pub fn to_slug(&self) -> String {
         format!("{owner}/{repo}", owner = self.owner, repo = self.repo)
     }
 }
 
 impl Display for GitHubRepoId {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(fmt, "{}", self.as_slug())
+        write!(fmt, "{}", self.to_slug())
     }
 }
 
