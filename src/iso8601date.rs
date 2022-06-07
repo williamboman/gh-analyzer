@@ -41,15 +41,15 @@ impl ISO8601Date {
         let year = date_components
             .next()
             .and_then(remove_padding)
-            .and_then(parse_u16);
+            .and_then(opt_parse);
         let month = date_components
             .next()
             .and_then(remove_padding)
-            .and_then(parse_u8);
+            .and_then(opt_parse);
         let day = date_components
             .next()
             .and_then(remove_padding)
-            .and_then(parse_u8);
+            .and_then(opt_parse);
 
         if let (Some(year), Some(month), Some(day)) = (year, month, day) {
             Ok((year, month, day))
@@ -131,11 +131,10 @@ impl Display for ISO8601Date {
     }
 }
 
-// TODO generics, macro?
-fn parse_u16(s: &str) -> Option<u16> {
-    s.parse().ok()
-}
-fn parse_u8(s: &str) -> Option<u8> {
+fn opt_parse<T>(s: &str) -> Option<T>
+where
+    T: FromStr,
+{
     s.parse().ok()
 }
 

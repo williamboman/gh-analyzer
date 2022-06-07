@@ -45,10 +45,7 @@ fn parse_repo_from_arg(argument: Option<String>) -> Result<GitHubRepoId> {
     let argument_str = argument.ok_or(cli::CliError::BadInput(
         "No repository provided.".to_owned(),
     ))?;
-    let github_repo_id = argument_str.parse().map_err(|_| {
-        cli::CliError::BadInput(format!(r#"Unable to parse repository "{}"."#, argument_str))
-    })?;
-    Ok(github_repo_id)
+    Ok(argument_str.parse()?)
 }
 
 impl TryFrom<cli::Commands> for Command {
